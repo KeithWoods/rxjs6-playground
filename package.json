@@ -5,9 +5,10 @@
   "license": "MIT",
   "dependencies": {
     "rxjs": "^6.5.4",
-    "typescript": "3.0.1"
+    "tsc-watch": "^4.2.3",
+    "typescript": "^3.8.3"
   },
   "scripts": {
-    "start": "./node_modules/.bin/tsc --build tsconfig.json && node index.js"
+    "start": "./node_modules/.bin/tsc-watch --onSuccess \"node ./dist/index.js\""
   }
 }
