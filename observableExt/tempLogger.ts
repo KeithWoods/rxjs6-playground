@@ -1,4 +1,7 @@
-export const log = (message: any) => {
+export const log = (message: any, addHeader = false) => {
+    if (addHeader) {
+        console.log(`\r\n-------------------------------------`);
+    }
     console.log(message);
 };
 

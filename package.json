@@ -4,7 +4,9 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
+    "esp-js": "^2.0.1",
     "rxjs": "^6.5.4",
+    "rxjs-compat": "^6.5.4",
     "tsc-watch": "^4.2.3",
     "typescript": "^3.8.3"
   },
