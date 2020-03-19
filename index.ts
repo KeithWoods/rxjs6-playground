@@ -26,8 +26,6 @@ const doOnSubscribeRx6 = () => {
             }
         );
 };
-// doOnSubscribeRx6();
-
 const doOnSubscribeRxCompat = () => {
     log(`doOnSubscribeRxCompat`, true);
     Rx.Observable
@@ -41,6 +39,7 @@ const doOnSubscribeRxCompat = () => {
             }
         );
 };
+// doOnSubscribeRx6();
 // doOnSubscribeRxCompat();
 
 const lazyConnectRx6 = () => {
@@ -76,16 +75,45 @@ const lazyConnectRx6 = () => {
     log(`should get lost`);
     subject.next(4); // gets lost
 };
-// lazyConnectRx6();
 
 const lazyConnectRxCompat = () => {
     log(`lazyConnectRxCompat`, true);
+
+    const subject = new Rx.Subject<number>();
+    let  subscription: Subscription = null;
+    let obs = subject
+        .doOnSubscribe(() => log(`subscribed`))
+        .publish()
+        .lazyConnect(s => subscription = s);
+
+    log(`should get lost`);
+    subject.next(1); // gets lost
+
+    obs.subscribe(i => {
+        log(`s1: ${i}`);
+    });
+
+    log(`sub is set: ${subscription !== null}`);
+
+    subject.next(2);
+
+    obs.subscribe(i => {
+        log(`s2: ${i}`);
+    });
+
+    subject.next(3);
+
+    log(`completing`);
+    subscription.unsubscribe();
+
+    log(`should get lost`);
+    subject.next(4); // gets lost
 };
+// lazyConnectRx6();
 // lazyConnectRxCompat();
 
 const retryWithPolicyRx6 = () => {
     log(`retryWithPolicyRx6`, true);
-
     const xs = interval(1000).pipe(
         publish()
     ) as ConnectableObservable<number>;
@@ -97,17 +125,19 @@ const retryWithPolicyRx6 = () => {
     obs.subscribe(i => {
         log(`s1: ${i}`);
     });
-
-    log(`retryWithPolicyRunner RX-compat`, true);
-
-    Rx.Observable.interval(1000).publish();
 };
-// retryWithPolicyRx6();
-
 const retryWithPolicyRxCompat = () => {
     log(`retryWithPolicyRxCompat`, true);
-    // Rx.Observable.interval(1000).publish();
+    const xs: ConnectableObservable<number> = Rx.Observable.interval(1000).publish();
+    const sub1: Subscription = xs.connect();
+    const obs = xs
+        .flatMap(i => i % 10 < 5 ? of(i) : throwError(new Error('oops!')))
+        .retryWithPolicy(RetryPolicy.createForUnlimitedRetry("Operation Error", 1_000 ))
+        .subscribe(i => {
+            log(`s1: ${i}`);
+        });
 };
+// retryWithPolicyRx6();
 // retryWithPolicyRxCompat();
 
 const takeUntilInclusiveRx6 = () => {
@@ -125,11 +155,22 @@ const takeUntilInclusiveRx6 = () => {
         }
     );
 };
-// takeUntilInclusiveRx6();
-
 const takeUntilInclusiveRxCompat = () => {
     log(`takeUntilInclusiveRxCompat`, true);
+    Rx.Observable
+        .interval(1000)
+        .takeUntilInclusive(item => item === 3)
+        .subscribe(
+            i => {
+                log(`s1: ${i}`);
+            },
+            e => {},
+            () => {
+                log(`Completed`);
+            }
+        );
 };
+// takeUntilInclusiveRx6();
 // takeUntilInclusiveRxCompat();
 
 const subscribeWithRouterRx6 = () => {
@@ -204,12 +245,79 @@ const subscribeWithRouterRx6 = () => {
     subject.next(1);
     subject.complete();
 };
-// subscribeWithRouterRx6();
-
 const subscribeWithRouterRxCompat = () => {
     log(`subscribeWithRouterRxCompat`, true);
+    type MyModel = {
+        counter?: number,
+        error?: any,
+        hasCompleted?: boolean,
+        reset: () => void;
+        toString: () => void;
+    };
+    const model: MyModel = {
+        counter: 0,
+        error: null,
+        hasCompleted: false,
+        reset() {
+            this.counter = 0;
+            this.error = null;
+            this.hasCompleted = false;
+        },
+        toString() {
+            log(`counter: ${this.counter}, error: ${this.error}, hasCompleted: ${this.hasCompleted}`);
+        }
+    };
+    const router = new Router();
+    router.addModel('m1', model);
+
+    const subject = new Rx.Subject<number>();
+
+    const stream = subject
+        .flatMap(i => i === 3 ? Rx.Observable.throwError(new Error('he ded')) : Rx.Observable.of(i))
+        .liftToEspObservable<number, MyModel>(router, 'm1');
+
+    const doSubscribe = () => {
+        model.reset();
+        return stream.subscribeWithRouter(
+            (i: number, m: MyModel) => {
+                log(`onNext`);
+                m.counter = i;
+                m.toString();
+            },
+            (e: Error, m: MyModel) => {
+                log(`onError`);
+                m.error = e;
+                m.toString();
+            },
+            (m: MyModel) => {
+                log(`onCompleted`);
+                m.hasCompleted = true;
+                m.toString();
+            }
+        );
+    };
+
+    log(`Example 1`);
+    let subscription = doSubscribe();
+    subject.next(1);
+    subject.next(2);
+    subject.next(3);
+    subject.next(4); // should be missed
+
+    log(`Example 2`);
+    subscription = doSubscribe();
+    subject.next(1);
+    subscription.unsubscribe();
+    subject.next(2); // should be missed
+
+
+    log(`Example 3`);
+    subscription = doSubscribe();
+    subject.next(1);
+    subject.complete();
 };
-// subscribeWithRouterRxCompat();
+// subscribeWithRouterRx6();
+subscribeWithRouterRxCompat();
 
 // ------------------------------------------------------------------------------------------------
 

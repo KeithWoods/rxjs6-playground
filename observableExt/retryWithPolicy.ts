@@ -1,5 +1,5 @@
+import {NEVER, Observable, SchedulerLike, Subscription} from 'rxjs';
 import {RetryPolicy} from './retryPolicy';
-import {ConnectableObservable, NEVER, Observable, SchedulerLike, Subscription} from 'rxjs';
 import {Logger} from "./tempLogger";
 import {async} from "rxjs/internal/scheduler/async";
 import {catchError} from "rxjs/operators";
@@ -68,9 +68,12 @@ export function retryWithPolicy<T>(policy: RetryPolicy, error?: (err: Error) => 
 }
 
 // Compatibility layer:
-(ConnectableObservable as any).prototype.retryWithPolicy = retryWithPolicy;
+export function retryWithPolicyCompat<T>(policy: RetryPolicy, error?: (err: Error) => void, scheduler?: SchedulerLike): Observable<T> {
+    return retryWithPolicy<T>(policy, error, scheduler)(this);
+}
+(Observable as any).prototype.retryWithPolicy = retryWithPolicyCompat;
 declare module 'rxjs/internal/Observable' {
     interface Observable<T> {
-        retryWithPolicy: typeof retryWithPolicy;
+        retryWithPolicy: typeof retryWithPolicyCompat;
     }
 }
